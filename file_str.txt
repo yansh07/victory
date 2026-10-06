@@ -1,0 +1,32 @@
+victory/
+├── DESIGN.md                # decisions, semantics, tradeoffs
+├── docs/PROTOCOL.md         # byte-level spec
+├── src/victory/
+│   ├── protocol/
+│   │   ├── frame.py         # header struct, constants
+│   │   ├── codec.py         # encode/decode payloads per command
+│   │   └── decoder.py       # streaming FrameDecoder.feed()
+│   ├── net/
+│   │   ├── reactor.py       # loop, register/modify/unregister
+│   │   ├── backends.py      # epoll / selectors backends
+│   │   ├── connection.py    # buffers, state machine, watermarks
+│   │   ├── timers.py        # heap
+│   │   └── wakeup.py        # self-pipe / socketpair
+│   ├── core/
+│   │   ├── session.py
+│   │   ├── rooms.py         # membership, per-room sequence numbers
+│   │   └── router.py        # command dispatch (pure logic)
+│   ├── cluster/
+│   │   ├── bus.py           # abstract Bus + InProcessBus
+│   │   ├── resp.py          # RESP2 parser/encoder
+│   │   └── redis_bus.py
+│   ├── storage/
+│   │   ├── wal.py           # append, crc, segments, replay
+│   │   └── writer_thread.py # queue + wakeup boundary
+│   ├── lifecycle/shutdown.py
+│   ├── metrics.py
+│   └── server.py            # wiring
+├── tools/                   # loadgen.py, slow_client.py, chaos.py
+├── tests/{unit,integration,property,chaos}/
+├── deploy/{docker-compose.yml, haproxy.cfg}
+└── bench/                   # scripts + recorded results
