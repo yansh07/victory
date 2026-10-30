@@ -2,4 +2,5 @@
 
 from pathlib import Path
 
-__path__ = [str(Path(__file__).resolve().parent.parent)]
+_package_dir = Path(__file__).resolve().parent
+__path__ = [str(_package_dir), str(_package_dir.parent)]
