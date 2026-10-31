@@ -4,43 +4,21 @@ x-victory-environment: &victory-environment
   PYTHONPATH: /app/src
   PYTHONDONTWRITEBYTECODE: "1"
   PYTHONUNBUFFERED: "1"
-  VICTORY_TOKEN: "${VICTORY_TOKEN:?Set VICTORY_TOKEN before starting the cluster}"
 
 x-victory-node: &victory-node
   image: python:3.11-slim
   working_dir: /app
-  init: true
+  env_file:
+    - ../.env
   restart: unless-stopped
-  read_only: true
-  user: "0:0"
-  cap_drop: [ALL]
-  cap_add: [CHOWN, SETUID, SETGID]
-  security_opt: ["no-new-privileges:true"]
-  pids_limit: 128
-  tmpfs:
-    - /tmp:rw,noexec,nosuid,nodev,size=16777216,mode=1777
-  ulimits:
-    nofile:
-      soft: 65536
-      hard: 65536
-  stop_signal: SIGTERM
-  stop_grace_period: 8s
   depends_on:
-    redis:
-      condition: service_healthy
-      restart: true
+    - redis
   entrypoint:
     - python
     - -c
     - |
       import os
       import sys
-
-      # Initialize the mounted WAL root, then permanently drop privileges.
-      os.chown("/var/lib/victory", 10001, 10001)
-      os.setgroups([])
-      os.setgid(10001)
-      os.setuid(10001)
       os.makedirs("/var/lib/victory/wal", mode=0o700, exist_ok=True)
       os.execv(sys.executable, [
           sys.executable, "-m", "victory.server",
@@ -51,42 +29,12 @@ x-victory-node: &victory-node
           "--max-connections", "10000", "--shutdown-ms", "5000",
       ])
   command: []
-  healthcheck:
-    test:
-      - CMD
-      - python
-      - /app/tools/loadgen.py
-      - --healthcheck
-      - --host
-      - 127.0.0.1
-      - --port
-      - "9000"
-      - --connect-timeout
-      - "2"
-    interval: 10s
-    timeout: 3s
-    start_period: 15s
-    retries: 3
-  logging:
-    driver: json-file
-    options:
-      max-size: 10m
-      max-file: "3"
   networks: [victory]
 
 services:
   redis:
     image: redis:7.4-alpine
-    user: "10002:10002"
     restart: unless-stopped
-    read_only: true
-    cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
-    pids_limit: 128
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,nodev,size=33554432,mode=1777
-    # Pub/Sub is ephemeral; durable message records belong to node WALs.
-    # Redis has no published host port.
     command:
       - redis-server
       - --bind
@@ -97,20 +45,6 @@ services:
       - ""
       - --appendonly
       - "no"
-      - --dir
-      - /tmp
-    healthcheck:
-      test: [CMD, redis-cli, --raw, PING]
-      interval: 5s
-      timeout: 2s
-      start_period: 5s
-      retries: 5
-    stop_grace_period: 5s
-    logging:
-      driver: json-file
-      options:
-        max-size: 10m
-        max-file: "3"
     networks: [victory]
 
   victory1:
@@ -137,44 +71,14 @@ services:
 
   haproxy:
     image: haproxy:3.2-alpine
-    user: "65532:65532"
     restart: unless-stopped
-    read_only: true
-    cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
-    pids_limit: 128
-    ulimits:
-      nofile:
-        soft: 65536
-        hard: 65536
     ports:
       - "${VICTORY_BIND_HOST:-127.0.0.1}:${VICTORY_PORT:-9000}:9000"
     volumes:
       - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     depends_on:
-      victory1:
-        condition: service_healthy
-      victory2:
-        condition: service_healthy
-    healthcheck:
-      test:
-        - CMD-SHELL
-        - >-
-          printf '\316\127\001\005\000\000\000\000\000\001\000\000\000\010\001\002\003\004\005\006\007\010'
-          | nc -w 2 127.0.0.1 9000
-          | od -An -tx1 -N6
-          | tr -d ' \n'
-          | grep -q '^ce5701080000$$'
-      interval: 5s
-      timeout: 3s
-      start_period: 10s
-      retries: 3
-    stop_grace_period: 12s
-    logging:
-      driver: json-file
-      options:
-        max-size: 10m
-        max-file: "3"
+      - victory1
+      - victory2
     networks: [victory]
 
 networks:
