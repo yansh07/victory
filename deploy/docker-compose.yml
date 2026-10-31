@@ -73,7 +73,8 @@ services:
     image: haproxy:3.2-alpine
     restart: unless-stopped
     ports:
-      - "${VICTORY_BIND_HOST:-127.0.0.1}:${VICTORY_PORT:-9000}:9000"
+      # - "${VICTORY_BIND_HOST:-127.0.0.1}:${VICTORY_PORT:-9000}:9000"
+      - "0.0.0.0:9000:9000"
     volumes:
       - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     depends_on:
