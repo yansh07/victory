@@ -223,4 +223,24 @@ Redis-backed integration cases additionally require Redis; isolated codec, core,
 
 ### Performance evidence
 
-Watermarks, budgets, and segment sizes are configuration defaults, not benchmark results. Throughput and tail-latency claims belong in `bench/` with the CPython version, workload, fanout, payload size, storage device, fsync latency, RSS, and loop-lag measurements. No unmeasured throughput or cross-language speedup is claimed.
+The current local benchmark evidence uses 256-byte messages, a maximum of 32
+in-flight messages per connection, and reports durable ACK completion. Both
+runs completed all 50,000 offered messages with zero connection failures,
+missing ACKs, or enqueue failures.
+
+| Profile | Connections | Rooms | Offered rate | Achieved durable ACKs | Mean ACK latency | p95 ACK latency | p99 ACK latency |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Balanced latency | 100 | 10 | 1,000/s | **999.97/s** | **2.46 ms** | **4.72 ms** | **7.08 ms** |
+| Peak throughput | 1,000 | 50 | 10,000/s | **8,166.87/s** | 965.10 ms | 1,845.49 ms | 2,147.48 ms |
+
+The 100-connection profile is the best balanced result: it tracks the offered
+rate while keeping the p99 ACK latency below 8 ms. The 1,000-connection
+profile demonstrates the observed peak throughput, but its queueing delay
+produces substantially higher tail latency. Latencies use fixed intended
+deadlines; unfinished offered slots are counted separately.
+
+These are environment-specific measurements, not universal capacity claims.
+Future benchmark records should include the CPython version, workload,
+fanout, payload size, storage device, fsync latency, RSS, and loop-lag
+measurements. Watermarks, budgets, and segment sizes remain configuration
+defaults rather than benchmark results.
